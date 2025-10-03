@@ -55,6 +55,51 @@ const webhookSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  // HTTP Basic Authentication for webhook endpoint
+  const authHeader = request.headers.get('authorization')
+  
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return NextResponse.json(
+      { error: 'Unauthorized: Missing or invalid authentication' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Webhook"' } }
+    )
+  }
+  
+  try {
+    // Decode Base64 credentials
+    const base64Credentials = authHeader.substring(6) // Remove 'Basic ' prefix
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8')
+    const [username, password] = credentials.split(':')
+    
+    // Verify credentials against environment variables
+    const validUsername = process.env.WEBHOOK_USERNAME
+    const validPassword = process.env.WEBHOOK_PASSWORD
+    
+    if (!validUsername || !validPassword) {
+      console.error('Webhook credentials not configured in environment variables')
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+    
+    if (username !== validUsername || password !== validPassword) {
+      console.warn('Invalid webhook credentials attempt:', { username })
+      return NextResponse.json(
+        { error: 'Unauthorized: Invalid credentials' },
+        { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Webhook"' } }
+      )
+    }
+    
+    // Authentication successful, proceed with webhook processing
+  } catch (authError) {
+    console.error('Authentication error:', authError)
+    return NextResponse.json(
+      { error: 'Unauthorized: Authentication failed' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Webhook"' } }
+    )
+  }
+  
   let body: any
   
   try {

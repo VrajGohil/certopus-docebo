@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   Home, 
   Globe, 
@@ -9,9 +9,13 @@ import {
   Webhook, 
   Activity, 
   Settings,
-  Award
+  Award,
+  LogOut,
+  User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import toast from 'react-hot-toast'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -23,6 +27,25 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST'
+      })
+
+      if (response.ok) {
+        toast.success('Logged out successfully')
+        router.push('/login')
+        router.refresh()
+      } else {
+        toast.error('Logout failed')
+      }
+    } catch (error) {
+      toast.error('Logout failed')
+    }
+  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900">
@@ -55,6 +78,33 @@ export function Sidebar() {
                 </li>
               ))}
             </ul>
+          </li>
+          
+          {/* Logout button */}
+          <li className="mt-auto">
+            <div className="border-t border-gray-800 pt-4">
+              <div className="flex items-center gap-x-3 px-2 py-2 text-sm text-gray-400 mb-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-800">
+                  <User className="h-4 w-4" />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-sm font-medium text-white truncate">
+                    Administrator
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">
+                    Authenticated
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleLogout}
+                variant="ghost"
+                className="w-full justify-start text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
           </li>
         </ul>
       </nav>

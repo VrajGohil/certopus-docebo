@@ -1,350 +1,650 @@
-# Docebo-Certopus Integration Platform
+# Docebo-Certopus Integration
 
-A comprehensive Next.js application for automating certificate generation when students complete Docebo courses using the Certopus API.
+Automatically generate certificates via Certopus when learners complete courses in Docebo. This integration uses webhooks to trigger certificate generation in real-time.
 
-## Features
+## 📋 Table of Contents
 
-🚀 **Web Interface**
-- Dashboard with overview metrics
-- Docebo domain management
-- Course-to-certificate mapping configuration
-- Real-time webhook monitoring
-- Certificate generation tracking
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+- [Docebo Setup](#docebo-setup)
+- [Usage](#usage)
+- [Troubleshooting](#troubleshooting)
+- [API Reference](#api-reference)
+- [Security](#security)
+- [Development](#development)
 
-🔗 **Webhook Processing**
-- Automated webhook handling for course completions
-- Real-time certificate generation
-- Error tracking and retry mechanisms
-- Webhook event logging
+## 🎯 Overview
 
-🎓 **Certificate Management**
-- Dynamic field mapping between Docebo and Certopus
-- Bulk certificate generation
-- Certificate status tracking
-- Custom field configuration
+This Next.js application serves as a middleware between Docebo LMS and Certopus certificate generation platform. When a learner completes a course in Docebo, a webhook triggers this application to automatically generate and issue a personalized certificate through Certopus.
 
-📊 **Monitoring & Analytics**
-- Real-time activity feed
-- Certificate generation statistics
-- Webhook event monitoring
-- Error tracking and reporting
+## ✨ Features
 
-## Architecture
+- **Automated Certificate Generation**: Instant certificate issuance upon course completion
+- **Flexible Field Mapping**: Map Docebo user fields to Certopus certificate fields
+- **Multi-Organization Support**: Handle multiple Certopus organizations and events
+- **Course-Specific Configuration**: Different certificate templates per course
+- **Retry Mechanism**: Automatic retry for failed certificate generations
+- **Admin Dashboard**: Web interface for managing course mappings
+- **Secure Authentication**: 
+  - Password-protected admin interface
+  - HTTP Basic Auth for webhook endpoint
+- **Detailed Logging**: Track certificate generation status and errors
+
+## 🏗 Architecture
 
 ```
-Docebo → Webhook → Next.js App → Database → Certopus API
-                     ↓
-              Web Interface (React)
+┌─────────┐         ┌──────────────────┐         ┌──────────┐
+│ Docebo  │ Webhook │  Next.js App     │   API   │ Certopus │
+│   LMS   ├────────►│  (This Service)  ├────────►│ Platform │
+└─────────┘         └──────────────────┘         └──────────┘
+                            │
+                            │ Store
+                            ▼
+                    ┌──────────────┐
+                    │  PostgreSQL  │
+                    │   Database   │
+                    └──────────────┘
 ```
 
-## Quick Start
+**Flow:**
+1. Learner completes a course in Docebo
+2. Docebo sends webhook to `/api/webhook` with course completion data
+3. Application authenticates the webhook request
+4. Fetches user details from Docebo API
+5. Looks up course mapping configuration
+6. Generates certificate via Certopus API with mapped fields
+7. Stores certificate record in database
 
-### 1. Prerequisites
+## 📦 Prerequisites
 
-- Node.js 18+ 
-- PostgreSQL database
-- Docebo API credentials
-- Certopus API key
+Before you begin, ensure you have:
 
-### 2. Installation
+### Required Accounts & Access
+
+- **Docebo LMS Account** with admin access
+  - API credentials (Client ID, Client Secret, Domain)
+  - Ability to configure webhooks
+- **Certopus Account** with API access
+  - API Key from Certopus dashboard
+- **PostgreSQL Database** (we recommend [Neon](https://neon.tech) for serverless PostgreSQL)
+- **Hosting Platform** (Vercel, Railway, or any Node.js hosting)
+
+### Development Tools
+
+- Node.js 18+ and npm/yarn/pnpm
+- Git
+
+## 🚀 Installation
+
+### 1. Clone the Repository
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd docebo-certopus-integration
+git clone https://github.com/VrajGohil/certopus-docebo.git
+cd certopus-docebo
+```
 
-# Install dependencies
+### 2. Install Dependencies
+
+```bash
 npm install
-
-# Setup environment variables
-cp .env.example .env
-# Edit .env with your configuration
+# or
+yarn install
+# or
+pnpm install
 ```
 
-### 3. Database Setup
+### 3. Set Up Database
 
 ```bash
-# Initialize Prisma and create database schema
+# Generate Prisma client
 npx prisma generate
-npx prisma db push
 
-# Optional: Open Prisma Studio to view data
-npx prisma studio
+# Run database migrations
+npx prisma migrate deploy
+
+# (Optional) Seed initial data
+npx prisma db seed
 ```
 
-### 4. Configuration
-
-Edit `.env` file with your settings:
-
-```bash
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/docebo_certopus"
-
-# Docebo API Configuration
-DOCEBO_API_URL="https://doceboapi.docebosaas.com"
-DOCEBO_API_USERNAME="your_docebo_username"
-DOCEBO_API_PASSWORD="your_docebo_password"
-
-# Certopus API Configuration  
-CERTOPUS_API_URL="https://api.certopus.com/v1"
-CERTOPUS_API_KEY="your_certopus_api_key"
-```
-
-### 5. Start the Application
-
-```bash
-# Development mode
-npm run dev
-
-# Production build
-npm run build
-npm start
-```
-
-Visit http://localhost:3000 to access the application.
-
-## Configuration Workflow
-
-### 1. Setup Docebo Domain
-
-1. Navigate to **Domains** in the web interface
-2. Click "Add Domain" 
-3. Configure:
-   - Domain name (e.g., yourcompany.docebosaas.com)
-   - API credentials (username/password)
-   - Test the connection
-
-### 2. Configure Certopus Integration
-
-The application automatically uses your Certopus API key to:
-- Fetch available organizations
-- Load events and certificate templates
-- Cache template field requirements
-
-### 3. Create Course Mappings
-
-1. Go to **Course Mappings**
-2. Click "Add Mapping"
-3. Select:
-   - Docebo domain and course
-   - Certopus organization, event, and certificate template
-   - Map fields between Docebo user data and certificate fields
-   - Configure auto-generation settings
-
-### 4. Setup Docebo Webhooks
-
-Configure Docebo to send webhooks to your application:
-
-**Webhook URL**: `https://yourdomain.com/api/webhook`
-**Event**: `course.enrollment.completed` 
-**Method**: POST
-**Content-Type**: application/json
-
-## API Endpoints
-
-### Webhook Endpoint
-```
-POST /api/webhook
-```
-Receives Docebo course completion webhooks and triggers certificate generation.
-
-### Domain Management
-```
-GET /api/domains - List configured domains
-POST /api/domains - Add new domain
-PUT /api/domains/[id] - Update domain
-DELETE /api/domains/[id] - Remove domain
-```
-
-### Course Mappings
-```
-GET /api/mappings - List course mappings
-POST /api/mappings - Create new mapping
-PUT /api/mappings/[id] - Update mapping
-DELETE /api/mappings/[id] - Remove mapping
-```
-
-### Certificate Tracking
-```
-GET /api/certificates - List generated certificates
-GET /api/certificates/[id] - Get certificate details
-POST /api/certificates/[id]/retry - Retry failed certificate
-```
-
-### Certopus Integration
-```
-GET /api/certopus/organisations - List Certopus organizations
-GET /api/certopus/events/[orgId] - List events for organization
-GET /api/certopus/categories - List certificate categories
-GET /api/certopus/fields - Get template field requirements
-```
-
-## Database Schema
-
-The application uses Prisma with PostgreSQL to store:
-
-- **DoceboDomain**: Docebo instance configurations
-- **CourseMapping**: Course-to-certificate mappings
-- **Certificate**: Generated certificate records
-- **WebhookLog**: Webhook processing logs
-- **CertopusOrganisation/Event/Category**: Cached Certopus data
-
-## Web Interface Pages
-
-### Dashboard (`/`)
-- Overview metrics and statistics
-- Recent activity feed
-- Quick action buttons
-- System status indicators
-
-### Domains (`/domains`)
-- List configured Docebo domains
-- Add/edit domain configurations  
-- Test API connections
-- View domain statistics
-
-### Course Mappings (`/mappings`)
-- List course-to-certificate mappings
-- Create new mappings with field configuration
-- Edit existing mappings
-- Enable/disable mappings
-
-### Certificates (`/certificates`)
-- View generated certificates
-- Search and filter certificates
-- Retry failed generations
-- Export certificate data
-
-### Webhooks (`/webhooks`)
-- Webhook setup instructions
-- View webhook logs
-- Debug webhook issues
-- Webhook testing tools
-
-### Activity (`/activity`)
-- Real-time activity feed
-- Certificate generation events
-- Error logs and alerts
-- System notifications
-
-## Webhook Processing Flow
-
-1. **Webhook Received**: Docebo sends course completion event
-2. **Validation**: Payload validated and logged
-3. **Domain Lookup**: Find matching Docebo domain configuration
-4. **Course Mapping**: Check for course-to-certificate mapping
-5. **User Data**: Fetch user details from Docebo API
-6. **Course Data**: Fetch course details from Docebo API  
-7. **Field Mapping**: Map Docebo fields to Certopus template fields
-8. **Certificate Creation**: Generate certificate via Certopus API
-9. **Status Update**: Update certificate status and webhook log
-
-## Certificate Field Mapping
-
-The application supports dynamic field mapping between Docebo user/course data and Certopus certificate templates:
-
-**Standard Fields:**
-- `{recipient_name}` - User's full name
-- `{recipient_email}` - User's email address  
-- `{course_name}` - Course title
-- `{completion_date}` - Formatted completion date
-- `{course_code}` - Course identifier
-
-**Custom Fields:**
-- Map any Docebo user field to certificate template fields
-- Support for calculated fields and transformations
-- Date formatting and text transformations
-
-## Error Handling
-
-- **Webhook Failures**: Logged with retry mechanisms
-- **API Errors**: Comprehensive error logging and user notifications
-- **Certificate Failures**: Detailed error tracking with manual retry options
-- **Connection Issues**: Automatic retry with exponential backoff
-
-## Security
-
-- **API Authentication**: Secure storage of API credentials
-- **Webhook Validation**: Request validation and duplicate prevention
-- **Rate Limiting**: Built-in rate limiting for API calls
-- **Error Sanitization**: Sensitive data protection in logs
-
-## Monitoring & Logging
-
-- **Structured Logging**: JSON-formatted logs for easy parsing
-- **Error Tracking**: Comprehensive error collection and reporting  
-- **Performance Metrics**: API response times and success rates
-- **Health Checks**: System health monitoring endpoints
-
-## Deployment
-
-### Docker Deployment
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
+## ⚙️ Configuration
 
 ### Environment Variables
-Ensure all required environment variables are configured in production:
-- Database connection
-- API credentials
-- Security keys
-- Domain configurations
 
-### Database Migration
+Copy the example environment file and configure it:
+
 ```bash
-npx prisma migrate deploy
+cp .env.example .env
 ```
 
-## Development
+Edit `.env` with your credentials:
+
+```bash
+# Database Configuration
+DATABASE_URL="postgresql://username:password@host:5432/database?sslmode=require"
+
+# Docebo API Credentials
+DOCEBO_CLIENT_ID="your_docebo_client_id"
+DOCEBO_CLIENT_SECRET="your_docebo_client_secret"
+DOCEBO_DOMAIN="your-domain.docebosaas.com"
+
+# Certopus API Credentials
+CERTOPUS_API_KEY="your_certopus_api_key"
+
+# Admin Authentication
+# Generate a secure password with: openssl rand -base64 24
+ADMIN_PASSWORD="your_secure_admin_password"
+
+# Webhook Authentication (HTTP Basic Auth)
+# These credentials will be used by Docebo to authenticate webhook requests
+WEBHOOK_USERNAME="docebo_webhook"
+WEBHOOK_PASSWORD="your_webhook_secure_password"
+
+# Application URL (for webhook URL generation)
+NEXT_PUBLIC_APP_URL="https://your-domain.com"
+```
+
+### Generate Secure Passwords
+
+```bash
+# Generate admin password
+openssl rand -base64 24
+
+# Generate webhook password
+openssl rand -base64 24
+```
+
+## 🌐 Deployment
+
+### Deploy to Vercel (Recommended)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/VrajGohil/certopus-docebo)
+
+1. Click the "Deploy with Vercel" button
+2. Connect your GitHub repository
+3. Add all environment variables from `.env`
+4. Deploy!
+
+### Manual Deployment Steps
+
+1. **Build the application:**
+   ```bash
+   npm run build
+   ```
+
+2. **Set environment variables** on your hosting platform
+
+3. **Run database migrations:**
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+4. **Start the application:**
+   ```bash
+   npm start
+   ```
+
+### Deploy to Railway
+
+1. Connect your GitHub repository to Railway
+2. Add environment variables in Railway dashboard
+3. Railway will automatically deploy on push
+
+### Deploy to Custom Server
+
+```bash
+# Build the application
+npm run build
+
+# Start with PM2 (process manager)
+pm2 start npm --name "docebo-certopus" -- start
+
+# Or use systemd, Docker, etc.
+```
+
+## 🔧 Docebo Setup
+
+### 1. Create API Credentials
+
+1. Log in to Docebo as admin
+2. Go to **Admin Menu** → **API & SSO** → **API Applications**
+3. Click **Add Application**
+4. Configure:
+   - **Name**: Certopus Integration
+   - **Grant Type**: Client Credentials
+   - **Scopes**: Select required scopes:
+     - `api:read:user`
+     - `api:read:course`
+5. Save and copy **Client ID** and **Client Secret**
+
+### 2. Configure Webhook
+
+1. Go to **Admin Menu** → **Advanced Settings** → **Webhooks**
+2. Click **Add Webhook**
+3. Configure:
+   - **Name**: Course Completion - Certopus
+   - **Event**: Course Enrollment Status → Completed
+   - **URL**: `https://your-domain.com/api/webhook`
+   - **Authentication Method**: Basic Authentication
+   - **Username**: `docebo_webhook` (from your WEBHOOK_USERNAME)
+   - **Password**: Your WEBHOOK_PASSWORD value
+   - **Content Type**: application/json
+4. Test the webhook
+5. Save
+
+**Alternative URL Format with Embedded Credentials:**
+```
+https://docebo_webhook:your_webhook_password@your-domain.com/api/webhook
+```
+
+## 📖 Usage
+
+### Access Admin Dashboard
+
+1. Navigate to `https://your-domain.com`
+2. Log in with your `ADMIN_PASSWORD`
+3. You'll see the dashboard with:
+   - Total mappings count
+   - Generated certificates count
+   - Webhook URL (with copy button)
+
+### Create Course Mapping
+
+1. Click **Mappings** in the sidebar
+2. Click **Create New Mapping**
+3. Select **Docebo Course** from dropdown
+4. Select **Certopus Organization**
+5. Select **Certopus Event**
+6. Select **Certificate Category**
+7. **Map Recipient Fields**:
+   - For each required field in the certificate template
+   - Map to corresponding Docebo user field
+   - Example: Certificate "Name" field → Docebo "first_name + last_name"
+8. Click **Create Mapping**
+
+### Field Mapping Examples
+
+| Certificate Field | Docebo Field | Example |
+|------------------|--------------|---------|
+| Name | `{Name}` | John Doe |
+| Email | `{email}` | john@example.com |
+| Course Name | `{course_name}` | Advanced JavaScript |
+| Completion Date | `{completion_date}` | 2025-10-03 |
+| User ID | `{user_id}` | 12345 |
+
+### View Generated Certificates
+
+1. Go to **Certificates** page
+2. See list of all generated certificates with:
+   - Certificate ID
+   - User email
+   - Course name
+   - Status (Success/Failed)
+   - Retry button for failed certificates
+
+### Retry Failed Certificates
+
+If a certificate generation fails:
+1. Navigate to **Certificates** page
+2. Find the failed certificate
+3. Click **Retry** button
+4. System will attempt to regenerate the certificate
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### 1. Webhook Not Triggering
+
+**Symptoms**: No certificates generated after course completion
+
+**Solutions**:
+- Verify webhook is active in Docebo
+- Check webhook URL is correct
+- Test webhook from Docebo admin panel
+- Check application logs for incoming requests
+- Verify webhook authentication credentials
+
+#### 2. Authentication Failures
+
+**Symptoms**: 401 Unauthorized errors in Docebo webhook logs
+
+**Solutions**:
+- Verify `WEBHOOK_USERNAME` and `WEBHOOK_PASSWORD` match Docebo configuration
+- Check Base64 encoding of credentials
+- Ensure credentials don't contain special characters that need escaping
+
+#### 3. Docebo API Errors
+
+**Symptoms**: "Failed to fetch user details" errors
+
+**Solutions**:
+- Verify Docebo API credentials (`CLIENT_ID`, `CLIENT_SECRET`, `DOMAIN`)
+- Check API scopes include `api:read:user`
+- Ensure OAuth token is being generated correctly
+- Check Docebo domain format (no https://, no trailing slash)
+
+#### 4. Certopus API Errors
+
+**Symptoms**: "Failed to generate certificate" errors
+
+**Solutions**:
+- Verify `CERTOPUS_API_KEY` is correct
+- Check API key has necessary permissions
+- Verify organization/event/category IDs exist
+- Ensure field mappings match certificate template
+- Check Certopus API rate limits
+
+#### 5. Database Connection Issues
+
+**Symptoms**: "Cannot connect to database" errors
+
+**Solutions**:
+- Verify `DATABASE_URL` is correct
+- Check database is accessible from your hosting environment
+- Run `npx prisma migrate deploy`
+- Verify SSL mode if required by your database host
+
+#### 6. Certificate Field Mapping Errors
+
+**Symptoms**: Certificates generated with missing/incorrect data
+
+**Solutions**:
+- Verify field mappings in course configuration
+- Check Docebo user has all required fields populated
+- Review certificate template field names in Certopus
+- Check webhook payload includes expected data
+
+### Debug Mode
+
+Enable detailed logging:
+
+```bash
+# Add to .env
+NODE_ENV=development
+```
+
+View logs:
+```bash
+# If using Vercel
+vercel logs
+
+# If using Railway
+railway logs
+
+# If using PM2
+pm2 logs docebo-certopus
+```
+
+### Test Webhook Manually
+
+Use curl to test the webhook endpoint:
+
+```bash
+curl -X POST https://your-domain.com/api/webhook \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n 'docebo_webhook:your_password' | base64)" \
+  -d '{
+    "event": {
+      "body": {
+        "webhook_id": 123,
+        "original_domain": "your-domain.docebosaas.com",
+        "event": "course.enrollment.completed",
+        "message_id": "test-123",
+        "payload": {
+          "fired_at": "2025-10-03T12:00:00Z",
+          "user_id": 12345,
+          "course_id": 67890,
+          "completion_date": "2025-10-03",
+          "status": "completed",
+          "enrollment_date": "2025-10-01"
+        }
+      }
+    }
+  }'
+```
+
+## 📚 API Reference
+
+### Webhook Endpoint
+
+**POST** `/api/webhook`
+
+Receives course completion webhooks from Docebo.
+
+**Authentication**: HTTP Basic Auth
+- Username: `WEBHOOK_USERNAME`
+- Password: `WEBHOOK_PASSWORD`
+
+**Request Body**:
+```json
+{
+  "event": {
+    "body": {
+      "webhook_id": 123,
+      "original_domain": "your-domain.docebosaas.com",
+      "event": "course.enrollment.completed",
+      "message_id": "unique-message-id",
+      "payload": {
+        "fired_at": "2025-10-03T12:00:00Z",
+        "user_id": 12345,
+        "course_id": 67890,
+        "completion_date": "2025-10-03",
+        "status": "completed",
+        "enrollment_date": "2025-10-01"
+      }
+    }
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "certificateId": "cert_123456",
+  "message": "Certificate generated successfully"
+}
+```
+
+### Admin Endpoints
+
+All admin endpoints require authentication via session cookie (obtained through login).
+
+#### Login
+**POST** `/api/auth/login`
+```json
+{
+  "password": "your_admin_password"
+}
+```
+
+#### Logout
+**POST** `/api/auth/logout`
+
+#### Get Mappings
+**GET** `/api/mappings`
+
+#### Create Mapping
+**POST** `/api/mappings`
+```json
+{
+  "courseId": "12345",
+  "courseName": "Advanced JavaScript",
+  "organizationId": "org_123",
+  "eventId": "evt_456",
+  "categoryId": "cat_789",
+  "fieldMappings": {
+    "Name": "{first_name} {last_name}",
+    "Email": "{email}"
+  }
+}
+```
+
+#### Update Mapping
+**PUT** `/api/mappings/[id]`
+
+#### Delete Mapping
+**DELETE** `/api/mappings/[id]`
+
+#### Retry Certificate
+**POST** `/api/certificates/[id]/retry`
+
+## 🔒 Security
+
+### Authentication Layers
+
+1. **Admin Interface**: Password-protected via `ADMIN_PASSWORD`
+2. **Webhook Endpoint**: HTTP Basic Authentication
+3. **Session Management**: HttpOnly cookies with 24-hour expiration
+4. **API Keys**: Environment variable storage only
+
+### Best Practices
+
+- **Use Strong Passwords**: Generate with `openssl rand -base64 24`
+- **Rotate Credentials**: Periodically update API keys and passwords
+- **HTTPS Only**: Always use HTTPS in production
+- **Environment Variables**: Never commit `.env` file to version control
+- **Database Security**: Use SSL connections, restrict IP access
+- **Monitor Logs**: Regularly review authentication attempts
+- **Rate Limiting**: Consider implementing rate limits for production
+
+### Security Checklist
+
+- [ ] Strong `ADMIN_PASSWORD` set
+- [ ] Strong `WEBHOOK_PASSWORD` set
+- [ ] All API keys stored in environment variables
+- [ ] `.env` file in `.gitignore`
+- [ ] HTTPS enabled on deployment
+- [ ] Database SSL connection enabled
+- [ ] Webhook authentication configured in Docebo
+- [ ] Regular credential rotation schedule established
+
+## 🛠 Development
+
+### Local Development
+
+1. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+
+2. **Access locally:**
+   - App: `http://localhost:3000`
+   - Webhook endpoint: `http://localhost:3000/api/webhook`
+
+3. **Test with ngrok** (for webhook testing):
+   ```bash
+   ngrok http 3000
+   ```
+   Use the ngrok URL in Docebo webhook configuration.
+
+### Database Management
+
+```bash
+# Create a new migration
+npx prisma migrate dev --name description_of_changes
+
+# Reset database (development only!)
+npx prisma migrate reset
+
+# Open Prisma Studio (GUI for database)
+npx prisma studio
+
+# Generate Prisma Client after schema changes
+npx prisma generate
+```
 
 ### Project Structure
+
 ```
-/app                 # Next.js app directory
-  /api              # API routes
-  /domains          # Domain management pages
-  /mappings         # Course mapping pages
-  /certificates     # Certificate tracking pages
-  /webhooks         # Webhook management pages
-/components         # React components
-  /ui              # Reusable UI components
-/lib               # Utility libraries and services
-/prisma           # Database schema and migrations
+certopus-docebo/
+├── app/
+│   ├── api/
+│   │   ├── auth/              # Authentication endpoints
+│   │   ├── certificates/      # Certificate management
+│   │   ├── certopus/          # Certopus API proxy
+│   │   ├── courses/           # Docebo course endpoints
+│   │   ├── mappings/          # Course mapping CRUD
+│   │   └── webhook/           # Main webhook handler
+│   ├── certificates/          # Certificates page
+│   ├── login/                 # Login page
+│   ├── mappings/              # Mappings management page
+│   ├── layout.tsx             # Root layout
+│   └── page.tsx               # Dashboard
+├── components/
+│   ├── ui/                    # Reusable UI components
+│   └── sidebar.tsx            # Navigation sidebar
+├── lib/
+│   ├── auth.ts                # Authentication utilities
+│   ├── certopus-service.ts    # Certopus API client
+│   ├── docebo-service.ts      # Docebo API client
+│   ├── prisma.ts              # Prisma client instance
+│   └── utils.ts               # Utility functions
+├── prisma/
+│   └── schema.prisma          # Database schema
+├── middleware.ts              # Route protection
+├── .env.example               # Environment template
+└── README.md                  # This file
 ```
 
 ### Adding New Features
 
-1. **Database Changes**: Update Prisma schema and migrate
-2. **API Routes**: Add new API endpoints in `/app/api`
-3. **UI Components**: Create reusable components in `/components`
-4. **Pages**: Add new pages in `/app` directory
-5. **Services**: Add business logic in `/lib` directory
+1. **New API Endpoint**: Create route handler in `app/api/`
+2. **New Page**: Create page component in `app/`
+3. **Database Changes**: Update `schema.prisma` and run migrations
+4. **New Service**: Add service class in `lib/`
 
-### Testing
+### Running Tests
 
 ```bash
-# Run type checking
+# Run tests (add your test framework)
+npm test
+
+# Type checking
 npm run type-check
 
-# Run linting
+# Linting
 npm run lint
-
-# Run tests (when implemented)
-npm run test
 ```
 
-## Troubleshooting
+## 📝 License
 
-### Common Issues
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-1. **Webhook Not Received**
-   - Check webhook URL configuration in Docebo
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📧 Support
+
+For issues and questions:
+
+- **GitHub Issues**: [Create an issue](https://github.com/VrajGohil/certopus-docebo/issues)
+- **Documentation**: [Wiki](https://github.com/VrajGohil/certopus-docebo/wiki)
+- **Docebo Support**: [Docebo Help Center](https://help.docebo.com)
+- **Certopus Support**: [Certopus Documentation](https://certopus.com/docs)
+
+## 🙏 Acknowledgments
+
+- Built with [Next.js](https://nextjs.org/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Database ORM by [Prisma](https://www.prisma.io/)
+- Hosted on [Vercel](https://vercel.com/)
+
+---
+
+**Made with ❤️ for seamless certificate automation**
    - Verify network connectivity
    - Check webhook logs in the application
 
