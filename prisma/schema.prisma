@@ -1,0 +1,174 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Docebo domains/instances
+model DoceboDomain {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g., "darwinbox-oem-demo110.docebosaas.com"
+  apiUrl    String   // Docebo API URL for this domain
+  username  String   // API username for this domain
+  password  String   // API password for this domain (encrypted)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  courseMappings CourseMapping[]
+  certificates   Certificate[]
+  webhookLogs    WebhookLog[]
+
+  @@map("docebo_domains")
+}
+
+// Course mappings between Docebo courses and Certopus templates
+model CourseMapping {
+  id           String @id @default(cuid())
+  doceboCourseId Int
+  courseTitle    String?
+  
+  // Certopus configuration
+  certopusOrgId     String
+  certopusEventId   String
+  certopusCategoryId String
+  
+  // Certificate settings
+  autoGenerate Boolean @default(true)
+  autoPublish  Boolean @default(false)
+  
+  // Custom field mappings (JSON)
+  fieldMappings Json? // Maps Docebo fields to Certopus custom fields
+  
+  // Relations
+  doceboDomain   DoceboDomain @relation(fields: [doceboDomainId], references: [id], onDelete: Cascade)
+  doceboDomainId String
+  certificates   Certificate[]
+  
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doceboDomainId, doceboCourseId])
+  @@map("course_mappings")
+}
+
+// Generated certificates log
+model Certificate {
+  id                String @id @default(cuid())
+  
+  // Docebo information
+  doceboUserId     Int
+  doceboCourseId   Int
+  userEmail        String
+  userName         String
+  completionDate   DateTime
+  
+  // Certopus information
+  certopusCredentialId String?
+  certificateUrl       String?
+  
+  // Status tracking
+  status           CertificateStatus @default(PENDING)
+  errorMessage     String?
+  
+  // Relations
+  doceboDomain     DoceboDomain  @relation(fields: [doceboDomainId], references: [id])
+  doceboDomainId   String
+  courseMapping    CourseMapping @relation(fields: [courseMappingId], references: [id])
+  courseMappingId  String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("certificates")
+}
+
+// Webhook processing logs
+model WebhookLog {
+  id          String @id @default(cuid())
+  
+  // Webhook details
+  messageId   String @unique
+  event       String // e.g., "course.enrollment.completed"
+  payload     Json   // Full webhook payload
+  
+  // Processing status
+  status      WebhookStatus @default(RECEIVED)
+  errorMessage String?
+  
+  // Relations
+  doceboDomain   DoceboDomain? @relation(fields: [doceboDomainId], references: [id])
+  doceboDomainId String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("webhook_logs")
+}
+
+// Certopus organisations cache
+model CertopusOrganisation {
+  id       String @id // Certopus org ID
+  name     String
+  imageUrl String?
+  
+  events     CertopusEvent[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("certopus_organisations")
+}
+
+// Certopus events cache
+model CertopusEvent {
+  id    String @id // Certopus event ID
+  title String
+  
+  // Relations
+  organisation   CertopusOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  organisationId String
+  categories     CertopusCategory[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("certopus_events")
+}
+
+// Certopus categories cache
+model CertopusCategory {
+  id    String @id // Certopus category ID
+  title String
+  
+  // Relations
+  event   CertopusEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("certopus_categories")
+}
+
+enum CertificateStatus {
+  PENDING
+  GENERATING
+  SUCCESS
+  FAILED
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  SUCCESS
+  FAILED
+}

@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+dist/
+*.log
+logs/
+.env
+.env.local
+.env.production
+.DS_Store
+Thumbs.db
+.vscode/
+*.tsbuildinfo
+coverage/
+.nyc_output/
+zapier/
